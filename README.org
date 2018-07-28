@@ -1,0 +1,35 @@
+* noronha
+
+Distributed key-value database written in Rust.
+
+** Development
+*** Dependencies
+    - =rustc= (tested with =rustc 1.27.2 (58cc626de 2018-07-18)=)
+    - cargo-watch (tested with =cargo-watch 7.0.1=)
+    - netcat
+
+*** Running
+    #+BEGIN_SRC bash
+    cargo watch -x run
+    #+END_SRC
+
+    #+BEGIN_SRC text
+    [Running cargo run]
+      Compiling noronha v0.1.0 (file:///Users/murilo/git/noronha)
+        Finished dev [unoptimized + debuginfo] target(s) in 1.13s
+        Running `target/debug/noronha`
+    2018-07-28T23:34:59.506945+02:00 INFO noronha - listening at 0.0.0.0:6500
+    2018-07-28T23:34:59.507602+02:00 INFO noronha - started
+    #+END_SRC
+
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    nc localhost 6500
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    {
+      "cluster_name": "noronha",
+      "node_name": "noronha-0",
+      "noronha_version": "0.1.0"
+    }
+    #+END_SRC

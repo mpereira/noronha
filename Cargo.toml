@@ -1,0 +1,11 @@
+[package]
+name = "noronha"
+version = "0.1.0"
+authors = ["Murilo Pereira <murilo@murilopereira.com>"]
+
+[dependencies]
+log = "0.4"
+log4rs = "0.8"
+serde_json = "1.0"
+
+[dev-dependencies]
