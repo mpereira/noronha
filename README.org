@@ -7,8 +7,7 @@ Distributed key-value database written in Rust.
 ** Development
 *** Dependencies
     - =rustc= (tested with =rustc 1.27.2 (58cc626de 2018-07-18)=)
-    - cargo-watch (tested with =cargo-watch 7.0.1=)
-    - netcat
+    - =cargo-watch= (tested with =cargo-watch 7.0.1=)
 
 *** Running
     #+BEGIN_SRC bash
@@ -25,7 +24,7 @@ Distributed key-value database written in Rust.
     #+END_SRC
 
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
-    nc localhost 6500
+    curl localhost:6500
     #+END_SRC
 
     #+BEGIN_SRC json

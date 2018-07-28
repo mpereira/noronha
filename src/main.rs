@@ -1,6 +1,4 @@
-use std::io::prelude::*;
-use std::net::TcpListener;
-use std::net::TcpStream;
+extern crate hyper;
 
 #[macro_use]
 extern crate log;
@@ -9,33 +7,39 @@ extern crate log4rs;
 #[macro_use]
 extern crate serde_json;
 
+use std::net::SocketAddr;
+
+use hyper::rt::Future;
+use hyper::service::service_fn_ok;
+use hyper::{Body, Response, Server};
+
 fn main() {
     log4rs::init_file("config/log4rs.yml", Default::default()).unwrap();
 
     let host = "0.0.0.0";
     let port = 6500;
-    let address = format!("{}:{}", host, port);
+    let address: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
 
-    let listener = TcpListener::bind(&address).unwrap();
+    let http_api = || {
+        service_fn_ok(|_| {
+            let data = json!({
+                "cluster_name" : "noronha",
+                "node_name" : "noronha-0",
+                "noronha_version" : "0.1.0"
+            });
+
+            let response_body = serde_json::to_string_pretty(&data).unwrap();
+
+            Response::new(Body::from(response_body))
+        })
+    };
+
+    let server = Server::bind(&address)
+        .serve(http_api)
+        .map_err(|e| error!("{}", e));
 
     info!("listening at {}", address);
     info!("started");
 
-    for stream in listener.incoming() {
-        handle_connection(stream.unwrap());
-    }
-}
-
-fn handle_connection(mut stream: TcpStream) {
-    let response = json!({
-        "cluster_name" : "noronha",
-        "node_name" : "noronha-0",
-        "noronha_version" : "0.1.0"
-    });
-
-    stream
-        .write(serde_json::to_string_pretty(&response).unwrap().as_bytes())
-        .unwrap();
-    stream.write("\n".as_bytes()).unwrap();
-    stream.flush().unwrap();
+    hyper::rt::run(server);
 }
