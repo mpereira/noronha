@@ -1,5 +1,7 @@
 * noronha
 
+[[https://travis-ci.org/mpereira/noronha][https://travis-ci.org/mpereira/noronha.svg?branch=master]]
+
 Distributed key-value database written in Rust.
 
 ** Development
