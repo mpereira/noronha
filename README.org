@@ -19,18 +19,58 @@ Distributed key-value database written in Rust.
       Compiling noronha v0.1.0 (file:///Users/murilo/git/noronha)
         Finished dev [unoptimized + debuginfo] target(s) in 1.13s
         Running `target/debug/noronha`
-    2018-07-28T23:34:59.506945+02:00 INFO noronha - listening at 0.0.0.0:6500
-    2018-07-28T23:34:59.507602+02:00 INFO noronha - started
+    2018-08-04T18:33:53.575939+02:00 INFO noronha - Starting
+    2018-08-04T18:33:53.581905+02:00 INFO actix_web::server::srv - Starting 10 http workers
+    2018-08-04T18:33:53.582030+02:00 INFO actix_web::server::srv - Starting server on http://0.
+    0.0.0:6500
     #+END_SRC
 
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
-    curl localhost:6500
+    curl -is localhost:6500
     #+END_SRC
 
     #+BEGIN_SRC json
+    HTTP/1.1 200 OK
+    content-length: 90
+    content-type: application/json
+    date: Sat, 04 Aug 2018 16:28:54 GMT
+
     {
       "cluster_name": "noronha",
       "node_name": "noronha-0",
-      "noronha_version": "0.1.0"
+      "noronha_version": "0.1.0-SNAPSHOT"
+    }
+    #+END_SRC
+
+** Get Started
+*** Create a namespace
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    curl -is -XPUT localhost:6500/people
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    HTTP/1.1 201 Created
+    content-length: 23
+    content-type: application/json
+    date: Sat, 04 Aug 2018 16:31:52 GMT
+
+    {
+      "name": "people"
+    }
+    #+END_SRC
+
+*** Get a namespace
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    curl -is -XGET localhost:6500/people
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    HTTP/1.1 200 OK
+    content-length: 23
+    content-type: application/json
+    date: Sat, 04 Aug 2018 16:31:59 GMT
+
+    {
+      "name": "people"
     }
     #+END_SRC
