@@ -43,34 +43,110 @@ Distributed key-value database written in Rust.
     #+END_SRC
 
 ** Get Started
-*** Create a namespace
+*** Create namespace
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
     curl -is -XPUT localhost:6500/people
     #+END_SRC
 
     #+BEGIN_SRC json
     HTTP/1.1 201 Created
-    content-length: 23
+    content-length: 71
     content-type: application/json
-    date: Sat, 04 Aug 2018 16:31:52 GMT
+    date: Mon, 06 Aug 2018 15:49:41 GMT
 
     {
+      "id": "cb91bc79-77f5-4cf9-bccd-d2dd3c7bbc1e",
       "name": "people"
     }
     #+END_SRC
 
-*** Get a namespace
+*** Get namespace with name
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
     curl -is -XGET localhost:6500/people
     #+END_SRC
 
     #+BEGIN_SRC json
     HTTP/1.1 200 OK
-    content-length: 23
+    content-length: 71
     content-type: application/json
-    date: Sat, 04 Aug 2018 16:31:59 GMT
+    date: Mon, 06 Aug 2018 15:49:52 GMT
 
     {
+      "id": "cb91bc79-77f5-4cf9-bccd-d2dd3c7bbc1e",
       "name": "people"
+    }
+    #+END_SRC
+
+*** Create object
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    curl -is -XPOST localhost:6500/people \
+      -H 'Content-Type: application/json' \
+      -d '{ "name": "John Doe" }'
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    HTTP/1.1 201 Created
+    content-length: 73
+    content-type: application/json
+    date: Mon, 06 Aug 2018 15:55:33 GMT
+
+    {
+      "id": "f5d18d91-bca5-4b4d-be5b-0a66dc0278b6",
+      "name": "John Doe"
+    }
+    #+END_SRC
+
+*** Create object with ID
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    curl -is -XPUT localhost:6500/people/f31b0448-cbc0-4150-a6b4-1c0350a770ae \
+      -H 'Content-Type: application/json' \
+      -d '{ "name": "Mary Jane" }'
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    HTTP/1.1 201 Created
+    content-length: 73
+    content-type: application/json
+    date: Mon, 06 Aug 2018 15:54:24 GMT
+
+    {
+      "id": "f31b0448-cbc0-4150-a6b4-1c0350a770ae",
+      "name": "Mary Jane"
+    }
+    #+END_SRC
+
+*** Update object with ID
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    curl -is -XPUT localhost:6500/people/f31b0448-cbc0-4150-a6b4-1c0350a770ae \
+      -H 'Content-Type: application/json' \
+      -d '{ "name": "Mary Jane" }'
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    HTTP/1.1 200 OK
+    content-length: 76
+    content-type: application/json
+    date: Mon, 06 Aug 2018 15:56:14 GMT
+
+    {
+      "id": "f31b0448-cbc0-4150-a6b4-1c0350a770ae",
+      "name": "Mary Jane"
+    }
+    #+END_SRC
+
+*** Get object with ID
+    #+BEGIN_SRC bash :results raw :wrap "SRC json"
+    curl -is -XGET localhost:6500/people/f31b0448-cbc0-4150-a6b4-1c0350a770ae
+    #+END_SRC
+
+    #+BEGIN_SRC json
+    HTTP/1.1 200 OK
+    content-length: 76
+    content-type: application/json
+    date: Mon, 06 Aug 2018 15:56:49 GMT
+
+    {
+      "id": "f31b0448-cbc0-4150-a6b4-1c0350a770ae",
+      "name": "Mary Jane"
     }
     #+END_SRC
