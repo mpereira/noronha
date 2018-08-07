@@ -1,41 +1,48 @@
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::HashMap;
 use std::str;
-use std::sync::Mutex;
 
-use actix_web::{http, App, Error, HttpRequest, HttpResponse};
+use actix_web::{
+    http::{self, StatusCode},
+    App, Error, HttpRequest, HttpResponse,
+};
+use im::hashmap::Entry::{Occupied, Vacant};
 use serde_json;
 
 use http_utils::{json_body, make_handler_for_request_with_body};
-use namespace::{self, Namespace};
+use namespace;
 use object::{self, ObjectData};
-use types::{Bag, Operation};
-use utils::make_id;
+use types::Operation;
+use utils::make_id_string;
 
-type Namespaces = Bag<Namespace>;
+use cluster::Cluster;
 
-lazy_static! {
-    static ref NAMESPACES: Mutex<Namespaces> = Mutex::new(HashMap::new());
+use state::CLUSTER;
+use state::NAMESPACES;
+
+fn cluster_information(cluster: &Cluster) -> serde_json::Value {
+    json!({
+        "cluster_name" : cluster.name,
+        "node_name" : cluster.node.name,
+        "noronha_version" : cluster.noronha_version
+    })
 }
 
 fn handle_cluster_information(
     _request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
-    let cluster_information = json!({
-        "cluster_name" : "noronha",
-        "node_name" : "noronha-0",
-        "noronha_version" : "0.1.0-SNAPSHOT"
-    });
-
-    Ok(HttpResponse::Ok()
-       .content_type("application/json")
-       .body(json_body(&cluster_information)))
+    match CLUSTER.read().unwrap().as_ref() {
+        Some(cluster) => Ok(HttpResponse::Ok()
+                            .content_type("application/json")
+                            .body(json_body(&cluster_information(cluster)))),
+        None => Ok(HttpResponse::build(StatusCode::SERVICE_UNAVAILABLE)
+                   .content_type("application/json")
+                   .finish()),
+    }
 }
 
 fn handle_create_namespace(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
-    let mut namespaces = NAMESPACES.lock().unwrap();
+    let mut namespaces = NAMESPACES.write().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
 
@@ -61,7 +68,7 @@ fn handle_create_namespace(
 }
 
 fn handle_get_namespace(request: &HttpRequest) -> Result<HttpResponse, Error> {
-    let namespaces = NAMESPACES.lock().unwrap();
+    let namespaces = NAMESPACES.read().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
 
@@ -83,14 +90,14 @@ fn handle_create_or_update_namespace_object(
     request: &HttpRequest,
     body: serde_json::Value,
 ) -> Result<HttpResponse, Error> {
-    let mut namespaces = NAMESPACES.lock().unwrap();
+    let mut namespaces = NAMESPACES.write().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
     let object_id: String = request
         .match_info()
         .get("object_id")
         .map(str::to_string)
-        .or(Some(make_id()))
+        .or(Some(make_id_string()))
         .unwrap();
 
     match namespaces.get_mut(&namespace_name) {
@@ -127,14 +134,14 @@ fn handle_create_or_update_namespace_object(
 fn handle_get_namespace_object(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
-    let namespaces = NAMESPACES.lock().unwrap();
+    let namespaces = NAMESPACES.read().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
     let object_id: String = request
         .match_info()
         .get("object_id")
         .map(str::to_string)
-        .or(Some(make_id()))
+        .or(Some(make_id_string()))
         .unwrap();
 
     match namespaces.get(&namespace_name) {

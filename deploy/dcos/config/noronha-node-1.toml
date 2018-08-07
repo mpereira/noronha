@@ -1,0 +1,15 @@
+cluster_name = "noronha"
+node_name = "noronha-node-1"
+bind_host = "0.0.0.0"
+publish_host = "noronha-node-1.marathon.l4lb.thisdcos.directory"
+cluster_peers = [
+  "noronha-node-0.marathon.l4lb.thisdcos.directory:6600",
+  "noronha-node-2.marathon.l4lb.thisdcos.directory:6600"
+]
+http_resources_port = 6500
+http_resources_workers = 10
+http_transport_port = 6600
+http_transport_workers = 3
+http_transport_pinger_connect_timeout = 30000 # ms
+http_transport_pinger_schedule = 5000 # ms
+log_config_file = "config/log4rs.yml"

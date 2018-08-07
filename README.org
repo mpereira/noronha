@@ -1,12 +1,14 @@
 * noronha
 
-[[https://travis-ci.org/mpereira/noronha][https://travis-ci.org/mpereira/noronha.svg?branch=master]]
+  [[https://travis-ci.org/mpereira/noronha][https://travis-ci.org/mpereira/noronha.svg?branch=master]]
 
-Distributed key-value database written in Rust.
+  Distributed key-value database written in Rust.
+
+  [[resources/noronha.jpg]]
 
 ** Development
 *** Dependencies
-    - =rustc= (tested with =rustc 1.27.2 (58cc626de 2018-07-18)=)
+    - =rustc= (tested with =rustc 1.28.0 (9634041f0 2018-07-30)=)
     - =cargo-watch= (tested with =cargo-watch 7.0.1=)
 
 *** Running
@@ -119,7 +121,7 @@ Distributed key-value database written in Rust.
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
     curl -is -XPUT localhost:6500/people/f31b0448-cbc0-4150-a6b4-1c0350a770ae \
       -H 'Content-Type: application/json' \
-      -d '{ "name": "Mary Jane" }'
+      -d '{ "name": "Mary Jane II" }'
     #+END_SRC
 
     #+BEGIN_SRC json
@@ -130,7 +132,7 @@ Distributed key-value database written in Rust.
 
     {
       "id": "f31b0448-cbc0-4150-a6b4-1c0350a770ae",
-      "name": "Mary Jane"
+      "name": "Mary Jane II"
     }
     #+END_SRC
 
@@ -147,6 +149,23 @@ Distributed key-value database written in Rust.
 
     {
       "id": "f31b0448-cbc0-4150-a6b4-1c0350a770ae",
-      "name": "Mary Jane"
+      "name": "Mary Jane II"
     }
     #+END_SRC
+
+** Deployment
+*** DC/OS
+    Assuming you have a DC/OS cluster provisioned and set-up you can start a
+    three-node Noronha cluster with:
+
+    #+BEGIN_SRC bash
+    dcos marathon app add deploy/dcos/applications/noronha-node-0.json
+    dcos marathon app add deploy/dcos/applications/noronha-node-1.json
+    dcos marathon app add deploy/dcos/applications/noronha-node-2.json
+    #+END_SRC
+
+** Author
+   [[http://murilopereira.com][Murilo Pereira]]
+
+** License
+   [[http://opensource.org/licenses/MIT][MIT]]

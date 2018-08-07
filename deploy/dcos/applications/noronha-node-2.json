@@ -1,0 +1,47 @@
+{
+  "id": "/noronha-node-2",
+  "instances": 1,
+  "cpus": 2,
+  "disk": 0,
+  "mem": 128,
+  "container": {
+    "type": "MESOS",
+    "docker": {
+      "forcePullImage": true,
+      "image": "mpereira/noronha"
+    },
+    "portMappings": [
+      {
+        "hostPort": 0,
+        "containerPort": 6500,
+        "name": "resource",
+        "labels": {
+          "VIP_0": "/noronha-node-2:6500"
+        }
+      },
+      {
+        "hostPort": 0,
+        "containerPort": 6600,
+        "name": "cluster",
+        "labels": {
+          "VIP_1": "/noronha-node-2:6600"
+        }
+      }
+    ]
+  },
+  "networks": [
+    {
+      "mode": "container",
+      "name": "dcos"
+    }
+  ],
+  "env": {
+    "NORONHA_CONFIGURATION_FILE": "/mnt/mesos/sandbox/Noronha.toml"
+  },
+  "fetch": [
+    {
+      "uri": "https://raw.githubusercontent.com/mpereira/noronha/master/deploy/dcos/config/noronha-node-2.toml",
+      "destPath": "Noronha.toml"
+    }
+  ]
+}

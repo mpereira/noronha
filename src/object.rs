@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use im::hashmap::HashMap;
 
 use types::{Bag, Metadata};
 

@@ -1,0 +1,12 @@
+cluster_name = "noronha"
+node_name = "noronha-node-0"
+bind_host = "0.0.0.0"
+publish_host = "0.0.0.0"
+cluster_peers = []
+http_resources_port = 6500
+http_resources_workers = 10
+http_transport_port = 6600
+http_transport_workers = 3
+http_transport_pinger_connect_timeout = 30000 # ms
+http_transport_pinger_schedule = 5000 # ms
+log_config_file = "config/log4rs.yml"
