@@ -13,7 +13,7 @@ pub struct Ping {
 
 pub type Pong = Ping;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Cluster {
     pub leader: Option<Node>,
     pub name: String,

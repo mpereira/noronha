@@ -39,6 +39,17 @@ fn handle_cluster_information(
     }
 }
 
+fn handle_cluster_state(_request: &HttpRequest) -> Result<HttpResponse, Error> {
+    match CLUSTER.read().unwrap().as_ref() {
+        Some(cluster) => Ok(HttpResponse::Ok()
+                            .content_type("application/json")
+                            .body(json_body(&serde_json::to_value(cluster).unwrap()))),
+        None => Ok(HttpResponse::build(StatusCode::SERVICE_UNAVAILABLE)
+                   .content_type("application/json")
+                   .finish()),
+    }
+}
+
 fn handle_create_namespace(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
@@ -167,6 +178,11 @@ pub fn application() -> App {
     App::new()
         .resource("/", |r| {
             r.method(http::Method::GET).f(handle_cluster_information)
+        })
+        .scope("/_cluster/", |s| {
+            s.resource("state", |r| {
+                r.method(http::Method::GET).f(handle_cluster_state)
+            })
         })
         .resource("/{namespace}", |r| {
             r.method(http::Method::PUT).f(handle_create_namespace);
