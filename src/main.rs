@@ -60,6 +60,21 @@ fn main() {
 
     info!("{:#?}", c);
 
+
+    let a = thread::spawn(move || {
+        c.cluster_name = "foo".to_string();
+        info!("{:#?}", c);
+    }).join().unwrap();
+
+    let b = thread::spawn(move || {
+        c.cluster_name = "bar".to_string();
+        info!("{:#?}", c);
+    }).join().unwrap();
+
+    let cc = thread::spawn(move || {
+        info!("{:#?}", c);
+    }).join().unwrap();
+
     {
         let node_address =
             format!("{}:{}", &c.publish_host, &c.http_transport_port);

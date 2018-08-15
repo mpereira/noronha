@@ -10,7 +10,7 @@ static CONFIGURATION_FILE_ENV_VARIABLE: &'static str =
 static DEFAULT_CONFIGURATION_FILE: &'static str = "config/Noronha.toml";
 
 lazy_static! {
-    static ref STATE: LocalStorage<Configuration> = LocalStorage::new();
+    static ref STATE: LocalStorage<&'static Configuration> = LocalStorage::new();
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -30,16 +30,15 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn start() -> &'static Self {
+    pub fn start() -> &'static mut Self {
         STATE.set(|| {
             let mut settings = Config::default();
 
             let config = settings
                 .merge(config::File::with_name(&Self::configuration_file()))
-                .unwrap()
-                .clone();
+                .unwrap();
 
-            let configuration: Self = config.try_into().unwrap();
+            let mut configuration: &Self = config.try_into().as_mut().unwrap();
 
             configuration
         });
@@ -47,8 +46,12 @@ impl Configuration {
         STATE.get()
     }
 
-    pub fn get() -> &'static Configuration {
+    pub fn get() -> &'static Self {
         STATE.get()
+    }
+
+    pub fn get_mut() -> &'static mut Self {
+        &mut STATE.get()
     }
 
     fn configuration_file() -> String {
