@@ -11,9 +11,9 @@ use signal_hook;
 
 use cluster::{Cluster, Pong};
 use node::{Node, UnknownNode};
+use configuration::Configuration;
 
-use state::CLUSTER;
-use state::CONFIGURATION;
+use noronha_state::CLUSTER;
 
 fn notify(
     signals: &[c_int],
@@ -137,16 +137,10 @@ fn ping_peers(client: &Client) -> () {
 }
 
 pub fn start() -> () {
-    let c = CONFIGURATION.read().unwrap();
+    let c = Configuration::get();
 
-    let http_transport_pinger_connect_timeout = c
-        .get_int("http_transport_pinger_connect_timeout")
-        .expect("http_transport_pinger_connect_timeout");
-    let http_transport_pinger_schedule =
-        c.get_int("http_transport_pinger_schedule")
-        .expect("http_transport_pinger_schedule") as u64;
-
-    drop(c);
+    let http_transport_pinger_connect_timeout = &c.http_transport_pinger_connect_timeout;
+    let http_transport_pinger_schedule = c.http_transport_pinger_schedule;
 
     let duration = Duration::from_millis(http_transport_pinger_schedule);
     let ping_receiver = channel::tick(duration);

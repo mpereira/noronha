@@ -7,7 +7,7 @@ use serde_json;
 use http_utils::{json_body, json_error, make_handler_for_request_with_body};
 use node::Node;
 
-use state::CLUSTER;
+use noronha_state::CLUSTER;
 
 fn handle_ping(
     _request: &HttpRequest,

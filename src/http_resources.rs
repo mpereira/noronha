@@ -15,8 +15,8 @@ use utils::make_id_string;
 
 use cluster::Cluster;
 
-use state::CLUSTER;
-use state::NAMESPACES;
+use noronha_state::CLUSTER;
+use noronha_state::NAMESPACES;
 
 fn cluster_information(cluster: &Cluster) -> serde_json::Value {
     json!({

@@ -8,3 +8,9 @@ pub enum Operation<T> {
     Created(T),
     Updated(T),
 }
+
+// impl<T> Bag<T> {
+//     pub fn new<T>() -> Self {
+//         HashMap::new::<T>()
+//     }
+// }
