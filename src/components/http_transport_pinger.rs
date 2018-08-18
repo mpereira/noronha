@@ -1,7 +1,7 @@
 use libc;
 use std::io::Error as IoError;
 use std::os::raw::c_int;
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use crossbeam_channel::{self as channel, Receiver, Sender};
@@ -10,10 +10,10 @@ use serde_json;
 use signal_hook;
 
 use cluster::{Cluster, Pong};
+use components::configuration::Configuration;
 use node::{Node, UnknownNode};
-use configuration::Configuration;
 
-use noronha_state::CLUSTER;
+use components;
 
 fn notify(
     signals: &[c_int],
@@ -92,7 +92,7 @@ fn ping_peer(client: &Client, node: &Node, peer: &Node) -> Result<Pong, Error> {
 }
 
 pub fn identify_peers(client: &Client) -> () {
-    match CLUSTER.write().unwrap().as_mut() {
+    match components::cluster::STATE.write().unwrap().as_mut() {
         Some(cluster) => {
             let unknown_peers = cluster.unknown_peers.clone();
             for peer in unknown_peers {
@@ -118,7 +118,7 @@ pub fn identify_peers(client: &Client) -> () {
 }
 
 fn ping_peers(client: &Client) -> () {
-    match CLUSTER.read().unwrap().as_ref() {
+    match components::cluster::STATE.read().unwrap().as_ref() {
         Some(cluster) => {
             for peer in &cluster.peers {
                 info!("Pinging {}", peer.name);
@@ -137,9 +137,10 @@ fn ping_peers(client: &Client) -> () {
 }
 
 pub fn start() -> () {
-    let c = Configuration::get();
+    let c = Configuration::read();
 
-    let http_transport_pinger_connect_timeout = &c.http_transport_pinger_connect_timeout;
+    let http_transport_pinger_connect_timeout =
+        &c.http_transport_pinger_connect_timeout;
     let http_transport_pinger_schedule = c.http_transport_pinger_schedule;
 
     let duration = Duration::from_millis(http_transport_pinger_schedule);
@@ -169,4 +170,8 @@ pub fn start() -> () {
             }
         }
     }
+}
+
+pub fn spawn() -> JoinHandle<()> {
+    thread::spawn(start)
 }

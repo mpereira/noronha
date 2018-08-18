@@ -1,8 +1,8 @@
 use std::env;
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockWriteGuard};
 
 use config::{self, Config};
-use state::{LocalStorage, Storage};
+use state::Storage;
 
 static CONFIGURATION_FILE_ENV_VARIABLE: &'static str =
     "NORONHA_CONFIGURATION_FILE";
@@ -10,10 +10,10 @@ static CONFIGURATION_FILE_ENV_VARIABLE: &'static str =
 static DEFAULT_CONFIGURATION_FILE: &'static str = "config/Noronha.toml";
 
 lazy_static! {
-    static ref STATE: LocalStorage<&'static Configuration> = LocalStorage::new();
+    static ref STATE: Storage<RwLock<Configuration>> = Storage::new();
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Configuration {
     pub cluster_name: String,
     pub node_name: String,
@@ -30,28 +30,27 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn start() -> &'static mut Self {
-        STATE.set(|| {
-            let mut settings = Config::default();
+    pub fn initialize() -> Self {
+        let mut settings = Config::default();
 
-            let config = settings
-                .merge(config::File::with_name(&Self::configuration_file()))
-                .unwrap();
+        let config = settings
+            .merge(config::File::with_name(&Self::configuration_file()))
+            .unwrap()
+            .clone();
 
-            let mut configuration: &Self = config.try_into().as_mut().unwrap();
+        let configuration: Self = config.try_into().unwrap();
 
-            configuration
-        });
+        STATE.set(RwLock::new(configuration));
 
-        STATE.get()
+        Self::read()
     }
 
-    pub fn get() -> &'static Self {
-        STATE.get()
+    pub fn read() -> Self {
+        STATE.get().read().unwrap().clone()
     }
 
-    pub fn get_mut() -> &'static mut Self {
-        &mut STATE.get()
+    pub fn write() -> RwLockWriteGuard<'static, Self> {
+        STATE.get().write().unwrap()
     }
 
     fn configuration_file() -> String {

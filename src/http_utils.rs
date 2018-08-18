@@ -17,7 +17,7 @@ pub fn json_error(error: serde_json::Error) -> String {
 
 pub fn make_handler_for_request_with_body(
     handler: &'static for<'r> Fn(&HttpRequest, serde_json::Value)
-                                 -> Result<HttpResponse, Error>,
+        -> Result<HttpResponse, Error>,
 ) -> Box<Fn(HttpRequest) -> Box<Future<Item = HttpResponse, Error = Error>>> {
     Box::new(move |request: HttpRequest| {
         request
