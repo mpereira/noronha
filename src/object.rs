@@ -4,20 +4,22 @@ use types::{Bag, Metadata};
 
 pub type ObjectData = Bag<String>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Object {
     pub metadata: Metadata,
     pub data: ObjectData,
 }
 
-pub fn make_object(mut data: ObjectData, id: &str) -> Object {
-    let mut metadata: Metadata = HashMap::new();
-    metadata.insert("id".to_string(), id.to_string());
+impl Object {
+    pub fn make(id: &str, mut data: ObjectData) -> Self {
+        let mut metadata: Metadata = HashMap::new();
+        metadata.insert("id".to_owned(), id.to_owned());
 
-    data.insert("id".to_string(), id.to_string());
+        data.insert("id".to_string(), id.to_string());
 
-    Object {
-        metadata: metadata,
-        data: data,
+        Self {
+            metadata: metadata,
+            data: data,
+        }
     }
 }
