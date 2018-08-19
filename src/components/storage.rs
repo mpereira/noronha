@@ -1,12 +1,7 @@
 use std::sync::RwLock;
 
-use im::hashmap::HashMap;
-
-use namespace::Namespace;
-use types::Bag;
-
-type Namespaces = Bag<Namespace>;
+use storage::Storage;
 
 lazy_static! {
-    pub static ref STATE: RwLock<Namespaces> = RwLock::new(HashMap::new());
+    pub static ref STATE: RwLock<Storage> = RwLock::new(Storage::new());
 }

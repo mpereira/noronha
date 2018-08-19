@@ -22,4 +22,8 @@ impl Object {
             data: data,
         }
     }
+
+    // pub fn id(&self) -> String {
+    //     self.data.get("id")
+    // }
 }

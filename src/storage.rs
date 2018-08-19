@@ -2,17 +2,14 @@ use im::hashmap::Entry::{Occupied, Vacant};
 
 use namespace::Namespace;
 use object::Object;
-use types::{
-    Bag,
-    Outcome::{Created, Updated},
-};
+use types::Bag;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
-    CreateNamespace {
+    CreateOrUpdateNamespace {
         namespace: Namespace,
     },
-    CreateNamespaceObject {
+    CreateOrUpdateNamespaceObject {
         namespace_name: String,
         object: Object,
     },
@@ -33,69 +30,86 @@ pub struct Storage {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Outcome {
-    NamespaceCreated {
-        namespace: Namespace,
-    },
-    NamespaceUpdated {
-        namespace: Namespace,
-    },
-    NamespaceObjectCreated {
-        namespace: Namespace,
-        object: Object,
-    },
-    NamespaceObjectUpdated {
-        namespace: Namespace,
-        object: Object,
-    },
-    NamespaceFound {
-        namespace: Namespace,
-    },
-    NamespaceNotFound {
-        namespace_name: String,
-    },
-    NamespaceObjectFound {
-        namespace: Namespace,
-        object: Object,
-    },
-    NamespaceObjectNotFound {
-        namespace_name: String,
-        object_id: String,
-    },
+    NamespaceCreated(Namespace),
+    NamespaceUpdated(Namespace),
+    NamespaceFound(Namespace),
+    NamespaceNotFound(String),
+    NamespaceObjectCreated(Object),
+    NamespaceObjectUpdated(Object),
+    NamespaceObjectFound(Object),
+    NamespaceObjectNotFound(String),
 }
 
 #[derive(Debug)]
-struct Error;
+pub struct Error;
 
 use self::Operation::*;
 use self::Outcome::*;
+
+impl Namespace {
+    pub fn create_or_update_object(
+        &mut self,
+        object: Object,
+    ) -> Result<Outcome, Error> {
+        let object = object.clone();
+        info!("create_or_update_object {:#?}", object);
+
+        match object.data.get("id") {
+            Some(object_id) => match self.objects.entry(object_id.to_owned()) {
+                Occupied(mut entry) => {
+                    entry.insert(object.to_owned());
+                    let object = object.clone();
+                    Ok(NamespaceObjectUpdated(object))
+                }
+                Vacant(entry) => {
+                    entry.insert(object.to_owned());
+                    let object = object.clone();
+                    Ok(NamespaceObjectCreated(object))
+                }
+            },
+            None => Err(Error),
+        }
+    }
+}
 
 impl Storage {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn create_namespace(
+    pub fn create_or_update_namespace(
         &mut self,
         namespace: Namespace,
     ) -> Result<Outcome, Error> {
-        self.apply(CreateNamespace { namespace })
+        self.apply(CreateOrUpdateNamespace { namespace })
     }
 
-    pub fn get_namespace(
+    pub fn read_namespace(
         &mut self,
         namespace_name: String,
     ) -> Result<Outcome, Error> {
         self.apply(ReadNamespace { namespace_name })
     }
 
-    pub fn create_namespace_object(
+    pub fn create_or_update_namespace_object(
         &mut self,
         namespace_name: String,
         object: Object,
     ) -> Result<Outcome, Error> {
-        self.apply(CreateNamespaceObject {
+        self.apply(CreateOrUpdateNamespaceObject {
             namespace_name,
             object,
+        })
+    }
+
+    pub fn read_namespace_object(
+        &mut self,
+        namespace_name: String,
+        object_id: String,
+    ) -> Result<Outcome, Error> {
+        self.apply(ReadNamespaceObject {
+            namespace_name,
+            object_id,
         })
     }
 
@@ -103,11 +117,15 @@ impl Storage {
         self.log.push(operation.clone());
 
         match operation {
-            CreateNamespace { namespace } => self._create_namespace(namespace),
-            CreateNamespaceObject {
+            CreateOrUpdateNamespace { namespace } => {
+                self._create_or_update_namespace(namespace)
+            }
+            CreateOrUpdateNamespaceObject {
                 namespace_name,
                 object,
-            } => self._create_namespace_object(namespace_name, object),
+            } => {
+                self._create_or_update_namespace_object(namespace_name, object)
+            }
             ReadNamespace { namespace_name } => {
                 self._read_namespace(namespace_name)
             }
@@ -118,7 +136,7 @@ impl Storage {
         }
     }
 
-    fn _create_namespace(
+    fn _create_or_update_namespace(
         &mut self,
         namespace: Namespace,
     ) -> Result<Outcome, Error> {
@@ -128,34 +146,23 @@ impl Storage {
         match self.namespaces.entry(namespace_name) {
             Occupied(mut entry) => {
                 entry.insert(namespace.to_owned());
-                Ok(NamespaceUpdated { namespace })
+                Ok(NamespaceUpdated(namespace))
             }
             Vacant(entry) => {
                 entry.insert(namespace.clone());
-                Ok(NamespaceCreated { namespace })
+                Ok(NamespaceCreated(namespace))
             }
         }
     }
 
-    fn _create_namespace_object(
+    fn _create_or_update_namespace_object(
         &mut self,
         namespace_name: String,
         object: Object,
     ) -> Result<Outcome, Error> {
         match self.namespaces.get_mut(&namespace_name) {
-            Some(namespace) => {
-                match namespace.create_or_update_object(object) {
-                    Created(object) => Ok(NamespaceObjectCreated {
-                        namespace: namespace.to_owned(),
-                        object: object.to_owned(),
-                    }),
-                    Updated(object) => Ok(NamespaceObjectUpdated {
-                        namespace: namespace.to_owned(),
-                        object: object.to_owned(),
-                    }),
-                }
-            }
-            None => Ok(NamespaceNotFound { namespace_name }),
+            Some(namespace) => namespace.create_or_update_object(object),
+            None => Ok(NamespaceNotFound(namespace_name)),
         }
     }
 
@@ -166,9 +173,9 @@ impl Storage {
         match self.namespaces.get(&namespace_name) {
             Some(namespace) => {
                 let namespace = namespace.to_owned();
-                Ok(NamespaceFound { namespace })
+                Ok(NamespaceFound(namespace))
             }
-            None => Ok(NamespaceNotFound { namespace_name }),
+            None => Ok(NamespaceNotFound(namespace_name)),
         }
     }
 
@@ -180,16 +187,12 @@ impl Storage {
         match self.namespaces.get(&namespace_name) {
             Some(namespace) => match namespace.objects.get(&object_id) {
                 Some(object) => {
-                    let namespace = namespace.to_owned();
                     let object = object.to_owned();
-                    Ok(NamespaceObjectFound { namespace, object })
+                    Ok(NamespaceObjectFound(object))
                 }
-                None => Ok(NamespaceObjectNotFound {
-                    namespace_name,
-                    object_id,
-                }),
+                None => Ok(NamespaceObjectNotFound(object_id)),
             },
-            None => Ok(NamespaceNotFound { namespace_name }),
+            None => Ok(NamespaceNotFound(namespace_name)),
         }
     }
 }
@@ -198,7 +201,6 @@ impl Storage {
 mod tests {
     use im::hashmap::HashMap;
 
-    use storage::Operation::*;
     use storage::*;
 
     #[test]
@@ -218,19 +220,18 @@ mod tests {
         let mut storage = Storage::new();
         let namespace_name = "people";
         let namespace = Namespace::make(namespace_name);
-        let create_namespace = CreateNamespace {
+        let create_or_update_namespace = CreateOrUpdateNamespace {
             namespace: namespace.to_owned(),
         };
 
-        let expected_outcome = NamespaceCreated {
-            namespace: namespace.clone(),
-        };
-        let expected_log = vec![create_namespace.clone()];
+        let expected_outcome = NamespaceCreated(namespace.clone());
+        let expected_log = vec![create_or_update_namespace.clone()];
         let mut expected_namespaces: Bag<Namespace> = HashMap::new();
         expected_namespaces
             .insert(namespace_name.to_owned(), namespace.to_owned());
 
-        let outcome = storage.apply(create_namespace.clone()).unwrap();
+        let outcome =
+            storage.apply(create_or_update_namespace.clone()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
@@ -245,24 +246,27 @@ mod tests {
         let object_id = "1";
         let object = Object::make(object_id, HashMap::new());
 
-        namespace.create_or_update_object(object.clone());
+        namespace
+            .objects
+            .insert(object_id.to_owned(), object.clone());
 
-        let create_namespace_object = CreateNamespaceObject {
+        let create_or_update_namespace_object = CreateOrUpdateNamespaceObject {
             namespace_name: namespace_name.to_owned(),
             object: object.clone(),
         };
 
-        let expected_outcome = NamespaceObjectCreated {
-            namespace: namespace.clone(),
-            object: object.clone(),
-        };
-        let expected_log =
-            vec![create_namespace.clone(), create_namespace_object.clone()];
+        let expected_outcome = NamespaceObjectCreated(object.clone());
+        let expected_log = vec![
+            create_or_update_namespace.clone(),
+            create_or_update_namespace_object.clone(),
+        ];
         let mut expected_namespaces: Bag<Namespace> = HashMap::new();
         expected_namespaces
             .insert(namespace_name.to_owned(), namespace.to_owned());
 
-        let outcome = storage.apply(create_namespace_object.clone()).unwrap();
+        let outcome = storage
+            .apply(create_or_update_namespace_object.clone())
+            .unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
@@ -273,20 +277,18 @@ mod tests {
         // 2. appends operation to log
         // 3. doesn't change namespaces
 
-        let get_namespace = ReadNamespace {
+        let read_namespace = ReadNamespace {
             namespace_name: namespace_name.to_owned(),
         };
 
-        let expected_outcome = NamespaceFound {
-            namespace: namespace.clone(),
-        };
+        let expected_outcome = NamespaceFound(namespace.clone());
         let expected_log = vec![
-            create_namespace.clone(),
-            create_namespace_object.clone(),
-            get_namespace.clone(),
+            create_or_update_namespace.clone(),
+            create_or_update_namespace_object.clone(),
+            read_namespace.clone(),
         ];
 
-        let outcome = storage.apply(get_namespace.clone()).unwrap();
+        let outcome = storage.apply(read_namespace.clone()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
@@ -298,13 +300,14 @@ mod tests {
         // 3. doesn't change namespaces
 
         let expected_log = vec![
-            create_namespace.clone(),
-            create_namespace_object.clone(),
-            get_namespace.clone(),
-            get_namespace.clone(),
+            create_or_update_namespace.clone(),
+            create_or_update_namespace_object.clone(),
+            read_namespace.clone(),
+            read_namespace.clone(),
         ];
 
-        let outcome = storage.get_namespace(namespace_name.to_owned()).unwrap();
+        let outcome =
+            storage.read_namespace(namespace_name.to_owned()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
@@ -315,24 +318,21 @@ mod tests {
         // 2. appends operation to log
         // 3. doesn't change namespaces
 
-        let get_namespace_object = ReadNamespaceObject {
+        let read_namespace_object = ReadNamespaceObject {
             namespace_name: namespace_name.to_owned(),
             object_id: object_id.to_owned(),
         };
 
-        let expected_outcome = NamespaceObjectFound {
-            namespace: namespace.clone(),
-            object: object.clone(),
-        };
+        let expected_outcome = NamespaceObjectFound(object.clone());
         let expected_log = vec![
-            create_namespace.clone(),
-            create_namespace_object.clone(),
-            get_namespace.clone(),
-            get_namespace.clone(),
-            get_namespace_object.clone(),
+            create_or_update_namespace.clone(),
+            create_or_update_namespace_object.clone(),
+            read_namespace.clone(),
+            read_namespace.clone(),
+            read_namespace_object.clone(),
         ];
 
-        let outcome = storage.apply(get_namespace_object.clone()).unwrap();
+        let outcome = storage.apply(read_namespace_object.clone()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);

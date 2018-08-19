@@ -24,7 +24,6 @@ extern crate uuid;
 
 mod cluster;
 mod components;
-mod database;
 mod http_utils;
 mod namespace;
 mod node;

@@ -6,16 +6,14 @@ use actix_web::{
     http::{self, StatusCode},
     server, App, Error, HttpRequest, HttpResponse,
 };
-use im::hashmap::Entry::{Occupied, Vacant};
 use serde_json;
 
 use components::configuration::Configuration;
 use http_utils::{json_body, make_handler_for_request_with_body};
 use namespace::Namespace;
 use object::{Object, ObjectData};
-use types::Outcome::*;
+use storage::Outcome::*;
 use utils::make_id_string;
-use storage;
 
 use cluster::Cluster;
 
@@ -34,98 +32,95 @@ fn handle_cluster_information(
 ) -> Result<HttpResponse, Error> {
     match components::cluster::STATE.read().unwrap().as_ref() {
         Some(cluster) => Ok(HttpResponse::Ok()
-                            .content_type("application/json")
-                            .body(json_body(&cluster_information(cluster)))),
+            .content_type("application/json")
+            .body(json_body(&cluster_information(cluster)))),
         None => Ok(HttpResponse::build(StatusCode::SERVICE_UNAVAILABLE)
-                   .content_type("application/json")
-                   .finish()),
+            .content_type("application/json")
+            .finish()),
     }
 }
 
 fn handle_cluster_state(_request: &HttpRequest) -> Result<HttpResponse, Error> {
     match components::cluster::STATE.read().unwrap().as_ref() {
         Some(cluster) => Ok(HttpResponse::Ok()
-                            .content_type("application/json")
-                            .body(json_body(&serde_json::to_value(cluster).unwrap()))),
+            .content_type("application/json")
+            .body(json_body(&serde_json::to_value(cluster).unwrap()))),
         None => Ok(HttpResponse::build(StatusCode::SERVICE_UNAVAILABLE)
-                   .content_type("application/json")
-                   .finish()),
+            .content_type("application/json")
+            .finish()),
     }
 }
 
-fn handle_create_namespace(
+fn handle_create_or_update_namespace(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
-    let mut namespaces = components::storage::STATE.write().unwrap();
+    let mut storage = components::storage::STATE.write().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
+    let namespace = Namespace::make(&namespace_name);
 
-    match namespaces.entry(namespace_name.clone()) {
-        Occupied(entry) => {
-            let namespace = entry.get();
-            let response_body = json!(namespace.metadata);
+    match storage.create_or_update_namespace(namespace) {
+        Ok(outcome) => match outcome {
+            NamespaceCreated(namespace) => {
+                let response_body = json!(namespace.metadata);
 
-            Ok(HttpResponse::build(http::StatusCode::OK)
-               .content_type("application/json")
-               .body(json_body(&response_body)))
-        }
-        Vacant(entry) => {
-            let namespace = Namespace::make(&namespace_name);
-            let response_body = json!(namespace.metadata);
-            entry.insert(namespace);
+                Ok(HttpResponse::build(StatusCode::CREATED)
+                    .content_type("application/json")
+                    .body(json_body(&response_body)))
+            }
+            NamespaceUpdated(namespace) => {
+                let response_body = json!(namespace.metadata);
 
-            Ok(HttpResponse::build(http::StatusCode::CREATED)
-               .content_type("application/json")
-               .body(json_body(&response_body)))
-        }
+                Ok(HttpResponse::build(StatusCode::OK)
+                    .content_type("application/json")
+                    .body(json_body(&response_body)))
+            }
+            _ => Ok(HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+                .content_type("application/json")
+                .finish()),
+        },
+        Err(_error) => Ok(HttpResponse::build(
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ).content_type("application/json")
+            .finish()),
     }
-    // let namespace = Namespace::make(&namespace_name);
-    // match storage::create_namespace(namespace) {
-    //     Ok(outcome) => match outcome {
-    //         Created(namespace) => (),
-    //         AlreadyExisted(error) => (),
-    //     },
-    //     Err(error) => (),
-    // }
 }
 
 fn handle_get_namespace(request: &HttpRequest) -> Result<HttpResponse, Error> {
-    let namespaces = components::storage::STATE.read().unwrap();
+    let mut storage = components::storage::STATE.write().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
 
-    match namespaces.get(&namespace_name) {
-        Some(namespace) => {
-            let response_body = json!(namespace.metadata);
+    match storage.read_namespace(namespace_name) {
+        Ok(outcome) => match outcome {
+            NamespaceFound(namespace) => {
+                let response_body = json!(namespace.metadata);
 
-            Ok(HttpResponse::build(http::StatusCode::OK)
-               .content_type("application/json")
-               .body(json_body(&response_body)))
-        }
-        None => Ok(HttpResponse::build(http::StatusCode::NOT_FOUND)
-                   .content_type("application/json")
-                   .finish()),
+                Ok(HttpResponse::build(StatusCode::OK)
+                    .content_type("application/json")
+                    .body(json_body(&response_body)))
+            }
+            NamespaceNotFound(_namespace_name) => {
+                Ok(HttpResponse::build(StatusCode::NOT_FOUND)
+                    .content_type("application/json")
+                    .finish())
+            }
+            _ => Ok(HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+                .content_type("application/json")
+                .finish()),
+        },
+        Err(_error) => Ok(HttpResponse::build(
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ).content_type("application/json")
+            .finish()),
     }
-
-    // match storage::get_namespace(namespace_name) {
-    //     Some(namespace) => {
-    //         let response_body = json!(namespace.metadata);
-
-    //         Ok(HttpResponse::build(http::StatusCode::OK)
-    //            .content_type("application/json")
-    //            .body(json_body(&response_body)))
-    //     }
-    //     None => Ok(HttpResponse::build(http::StatusCode::NOT_FOUND)
-    //                .content_type("application/json")
-    //                .finish()),
-    // }
 }
 
 fn handle_create_or_update_namespace_object(
     request: &HttpRequest,
     body: serde_json::Value,
 ) -> Result<HttpResponse, Error> {
-    let mut namespaces = components::storage::STATE.write().unwrap();
+    let mut storage = components::storage::STATE.write().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
     let object_id: String = request
@@ -134,73 +129,47 @@ fn handle_create_or_update_namespace_object(
         .map(str::to_string)
         .or(Some(make_id_string()))
         .unwrap();
+    let object_data: ObjectData = serde_json::from_value(body).unwrap();
+    let object = Object::make(&object_id, object_data);
+    info!("handler {:#?}", object);
 
-    match namespaces.get_mut(&namespace_name) {
-        Some(namespace) => {
-            let object_data: ObjectData = serde_json::from_value(body).unwrap();
-            let outcome = namespace
-                .create_or_update_object(Object::make(&object_id, object_data));
+    match storage.create_or_update_namespace_object(namespace_name, object) {
+        Ok(outcome) => match outcome {
+            NamespaceObjectCreated(object) => {
+                info!("handler arm {:#?}", object);
+                let response_body = json!(object.data);
 
-            match outcome {
-                Created(object) => {
-                    let response_body = json!(object.data);
-
-                    Ok(HttpResponse::build(http::StatusCode::CREATED)
-                       .content_type("application/json")
-                       .body(json_body(&response_body)))
-                }
-                Updated(object) => {
-                    let response_body = json!(object.data);
-
-                    Ok(HttpResponse::build(http::StatusCode::OK)
-                       .content_type("application/json")
-                       .body(json_body(&response_body)))
-                }
+                Ok(HttpResponse::build(StatusCode::CREATED)
+                    .content_type("application/json")
+                    .body(json_body(&response_body)))
             }
-        }
-        None => Ok(HttpResponse::build(http::StatusCode::NOT_FOUND)
-                   .content_type("application/json")
-                   .finish()),
+            NamespaceObjectUpdated(object) => {
+                let response_body = json!(object.data);
+
+                Ok(HttpResponse::build(StatusCode::OK)
+                    .content_type("application/json")
+                    .body(json_body(&response_body)))
+            }
+            NamespaceNotFound(_namespace_name) => {
+                Ok(HttpResponse::build(StatusCode::NOT_FOUND)
+                    .content_type("application/json")
+                    .finish())
+            }
+            _ => Ok(HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+                .content_type("application/json")
+                .finish()),
+        },
+        Err(_error) => Ok(HttpResponse::build(
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ).content_type("application/json")
+            .finish()),
     }
-
-    // let object_data: ObjectData = serde_json::from_value(body).unwrap();
-    // let object = Object::make(&object_id, object_data);
-    // match storage::create_namespace_object(namespace_name, object) {
-    //     Ok(outcome) => {
-    //         match outcome {
-    //             NamespaceObjectCreated { namespace, object } => {
-    //                 let response_body = json!(object.data);
-
-    //                 Ok(HttpResponse::build(http::StatusCode::CREATED)
-    //                    .content_type("application/json")
-    //                    .body(json_body(&response_body)))
-    //             },
-    //             NamespaceObjectUpdated { namespace, object } => {
-    //                 let response_body = json!(object.data);
-
-    //                 Ok(HttpResponse::build(http::StatusCode::OK)
-    //                    .content_type("application/json")
-    //                    .body(json_body(&response_body)))
-    //             },
-    //             NamespaceNotFound => { namespace_name } => {
-    //                 Ok(HttpResponse::build(http::StatusCode::NOT_FOUND)
-    //                    .content_type("application/json")
-    //                    .finish())
-    //             }
-    //         }
-    //     }
-    //     Err(error) => {
-    //         Ok(HttpResponse::build(StatusCode::SERVICE_UNAVAILABLE)
-    //            .content_type("application/json")
-    //            .finish())
-    //     }
-    // }
 }
 
 fn handle_get_namespace_object(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
-    let namespaces = components::storage::STATE.read().unwrap();
+    let mut storage = components::storage::STATE.write().unwrap();
 
     let namespace_name: String = request.match_info().query("namespace")?;
     let object_id: String = request
@@ -210,22 +179,33 @@ fn handle_get_namespace_object(
         .or(Some(make_id_string()))
         .unwrap();
 
-    match namespaces.get(&namespace_name) {
-        Some(namespace) => match namespace.objects.get(&object_id) {
-            Some(object) => {
+    match storage.read_namespace_object(namespace_name, object_id) {
+        Ok(outcome) => match outcome {
+            NamespaceObjectFound(object) => {
                 let response_body = json!(object.data);
 
-                Ok(HttpResponse::build(http::StatusCode::OK)
-                   .content_type("application/json")
-                   .body(json_body(&response_body)))
+                Ok(HttpResponse::build(StatusCode::OK)
+                    .content_type("application/json")
+                    .body(json_body(&response_body)))
             }
-            None => Ok(HttpResponse::build(http::StatusCode::NOT_FOUND)
-                       .content_type("application/json")
-                       .finish()),
+            NamespaceNotFound(_namespace_name) => {
+                Ok(HttpResponse::build(StatusCode::NOT_FOUND)
+                    .content_type("application/json")
+                    .finish())
+            }
+            NamespaceObjectNotFound(_object_id) => {
+                Ok(HttpResponse::build(StatusCode::NOT_FOUND)
+                    .content_type("application/json")
+                    .finish())
+            }
+            _ => Ok(HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+                .content_type("application/json")
+                .finish()),
         },
-        None => Ok(HttpResponse::build(http::StatusCode::NOT_FOUND)
-                   .content_type("application/json")
-                   .finish()),
+        Err(_error) => Ok(HttpResponse::build(
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ).content_type("application/json")
+            .finish()),
     }
 }
 
@@ -240,7 +220,8 @@ pub fn application() -> App {
             })
         })
         .resource("/{namespace}", |r| {
-            r.method(http::Method::PUT).f(handle_create_namespace);
+            r.method(http::Method::PUT)
+                .f(handle_create_or_update_namespace);
             r.method(http::Method::GET).f(handle_get_namespace);
             r.method(http::Method::POST).with(|request: HttpRequest| {
                 make_handler_for_request_with_body(
@@ -263,8 +244,8 @@ pub fn start() -> () {
 
     let http_resources_address: SocketAddr =
         format!("{}:{}", c.bind_host, c.http_resources_port)
-        .parse()
-        .unwrap();
+            .parse()
+            .unwrap();
 
     let http_resources_server = server::new(application)
         .workers(c.http_resources_workers)

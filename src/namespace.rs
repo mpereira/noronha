@@ -1,10 +1,7 @@
-use im::hashmap::{
-    Entry::{Occupied, Vacant},
-    HashMap,
-};
+use im::hashmap::HashMap;
 
 use object::Object;
-use types::{Bag, Metadata, Outcome::{self, *}};
+use types::{Bag, Metadata};
 use utils::make_id_string;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,24 +19,6 @@ impl Namespace {
         Self {
             metadata: metadata,
             objects: HashMap::new(),
-        }
-    }
-
-    pub fn create_or_update_object(
-        &mut self,
-        object: Object,
-    ) -> Outcome<Object> {
-        let object_id = object.data.get("id").unwrap().to_string();
-
-        match self.objects.entry(object_id) {
-            Occupied(mut entry) => {
-                entry.insert(object.to_owned());
-                Updated(object)
-            }
-            Vacant(entry) => {
-                entry.insert(object.to_owned());
-                Created(object)
-            }
         }
     }
 }
