@@ -1,23 +1,23 @@
 use im::hashmap::Entry::{Occupied, Vacant};
 
-use namespace::Namespace;
+use keyspace::Keyspace;
 use object::Object;
 use types::Bag;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
-    CreateOrUpdateNamespace {
-        namespace: Namespace,
+    CreateOrUpdateKeyspace {
+        keyspace: Keyspace,
     },
-    CreateOrUpdateNamespaceObject {
-        namespace_name: String,
+    CreateOrUpdateKeyspaceObject {
+        keyspace_name: String,
         object: Object,
     },
-    ReadNamespace {
-        namespace_name: String,
+    ReadKeyspace {
+        keyspace_name: String,
     },
-    ReadNamespaceObject {
-        namespace_name: String,
+    ReadKeyspaceObject {
+        keyspace_name: String,
         object_id: String,
     },
 }
@@ -25,19 +25,19 @@ pub enum Operation {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Storage {
     log: Vec<Operation>,
-    namespaces: Bag<Namespace>,
+    keyspaces: Bag<Keyspace>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Outcome {
-    NamespaceCreated(Namespace),
-    NamespaceUpdated(Namespace),
-    NamespaceFound(Namespace),
-    NamespaceNotFound(String),
-    NamespaceObjectCreated(Object),
-    NamespaceObjectUpdated(Object),
-    NamespaceObjectFound(Object),
-    NamespaceObjectNotFound(String),
+    KeyspaceCreated(Keyspace),
+    KeyspaceUpdated(Keyspace),
+    KeyspaceFound(Keyspace),
+    KeyspaceNotFound(String),
+    KeyspaceObjectCreated(Object),
+    KeyspaceObjectUpdated(Object),
+    KeyspaceObjectFound(Object),
+    KeyspaceObjectNotFound(String),
 }
 
 #[derive(Debug)]
@@ -46,25 +46,24 @@ pub struct Error;
 use self::Operation::*;
 use self::Outcome::*;
 
-impl Namespace {
+impl Keyspace {
     pub fn create_or_update_object(
         &mut self,
         object: Object,
     ) -> Result<Outcome, Error> {
         let object = object.clone();
-        info!("create_or_update_object {:#?}", object);
 
         match object.data.get("id") {
             Some(object_id) => match self.objects.entry(object_id.to_owned()) {
                 Occupied(mut entry) => {
                     entry.insert(object.to_owned());
                     let object = object.clone();
-                    Ok(NamespaceObjectUpdated(object))
+                    Ok(KeyspaceObjectUpdated(object))
                 }
                 Vacant(entry) => {
                     entry.insert(object.to_owned());
                     let object = object.clone();
-                    Ok(NamespaceObjectCreated(object))
+                    Ok(KeyspaceObjectCreated(object))
                 }
             },
             None => Err(Error),
@@ -77,38 +76,38 @@ impl Storage {
         Default::default()
     }
 
-    pub fn create_or_update_namespace(
+    pub fn create_or_update_keyspace(
         &mut self,
-        namespace: Namespace,
+        keyspace: Keyspace,
     ) -> Result<Outcome, Error> {
-        self.apply(CreateOrUpdateNamespace { namespace })
+        self.apply(CreateOrUpdateKeyspace { keyspace })
     }
 
-    pub fn read_namespace(
+    pub fn read_keyspace(
         &mut self,
-        namespace_name: String,
+        keyspace_name: String,
     ) -> Result<Outcome, Error> {
-        self.apply(ReadNamespace { namespace_name })
+        self.apply(ReadKeyspace { keyspace_name })
     }
 
-    pub fn create_or_update_namespace_object(
+    pub fn create_or_update_keyspace_object(
         &mut self,
-        namespace_name: String,
+        keyspace_name: String,
         object: Object,
     ) -> Result<Outcome, Error> {
-        self.apply(CreateOrUpdateNamespaceObject {
-            namespace_name,
+        self.apply(CreateOrUpdateKeyspaceObject {
+            keyspace_name,
             object,
         })
     }
 
-    pub fn read_namespace_object(
+    pub fn read_keyspace_object(
         &mut self,
-        namespace_name: String,
+        keyspace_name: String,
         object_id: String,
     ) -> Result<Outcome, Error> {
-        self.apply(ReadNamespaceObject {
-            namespace_name,
+        self.apply(ReadKeyspaceObject {
+            keyspace_name,
             object_id,
         })
     }
@@ -117,82 +116,82 @@ impl Storage {
         self.log.push(operation.clone());
 
         match operation {
-            CreateOrUpdateNamespace { namespace } => {
-                self._create_or_update_namespace(namespace)
+            CreateOrUpdateKeyspace { keyspace } => {
+                self._create_or_update_keyspace(keyspace)
             }
-            CreateOrUpdateNamespaceObject {
-                namespace_name,
+            CreateOrUpdateKeyspaceObject {
+                keyspace_name,
                 object,
             } => {
-                self._create_or_update_namespace_object(namespace_name, object)
+                self._create_or_update_keyspace_object(keyspace_name, object)
             }
-            ReadNamespace { namespace_name } => {
-                self._read_namespace(namespace_name)
+            ReadKeyspace { keyspace_name } => {
+                self._read_keyspace(keyspace_name)
             }
-            ReadNamespaceObject {
-                namespace_name,
+            ReadKeyspaceObject {
+                keyspace_name,
                 object_id,
-            } => self._read_namespace_object(namespace_name, object_id),
+            } => self._read_keyspace_object(keyspace_name, object_id),
         }
     }
 
-    fn _create_or_update_namespace(
+    fn _create_or_update_keyspace(
         &mut self,
-        namespace: Namespace,
+        keyspace: Keyspace,
     ) -> Result<Outcome, Error> {
-        let namespace = namespace.clone();
-        let namespace_name = namespace.metadata.get("name").unwrap().to_owned();
+        let keyspace = keyspace.clone();
+        let keyspace_name = keyspace.metadata.get("name").unwrap().to_owned();
 
-        match self.namespaces.entry(namespace_name) {
+        match self.keyspaces.entry(keyspace_name) {
             Occupied(mut entry) => {
-                entry.insert(namespace.to_owned());
-                Ok(NamespaceUpdated(namespace))
+                entry.insert(keyspace.to_owned());
+                Ok(KeyspaceUpdated(keyspace))
             }
             Vacant(entry) => {
-                entry.insert(namespace.clone());
-                Ok(NamespaceCreated(namespace))
+                entry.insert(keyspace.clone());
+                Ok(KeyspaceCreated(keyspace))
             }
         }
     }
 
-    fn _create_or_update_namespace_object(
+    fn _create_or_update_keyspace_object(
         &mut self,
-        namespace_name: String,
+        keyspace_name: String,
         object: Object,
     ) -> Result<Outcome, Error> {
-        match self.namespaces.get_mut(&namespace_name) {
-            Some(namespace) => namespace.create_or_update_object(object),
-            None => Ok(NamespaceNotFound(namespace_name)),
+        match self.keyspaces.get_mut(&keyspace_name) {
+            Some(keyspace) => keyspace.create_or_update_object(object),
+            None => Ok(KeyspaceNotFound(keyspace_name)),
         }
     }
 
-    fn _read_namespace(
+    fn _read_keyspace(
         &mut self,
-        namespace_name: String,
+        keyspace_name: String,
     ) -> Result<Outcome, Error> {
-        match self.namespaces.get(&namespace_name) {
-            Some(namespace) => {
-                let namespace = namespace.to_owned();
-                Ok(NamespaceFound(namespace))
+        match self.keyspaces.get(&keyspace_name) {
+            Some(keyspace) => {
+                let keyspace = keyspace.to_owned();
+                Ok(KeyspaceFound(keyspace))
             }
-            None => Ok(NamespaceNotFound(namespace_name)),
+            None => Ok(KeyspaceNotFound(keyspace_name)),
         }
     }
 
-    fn _read_namespace_object(
+    fn _read_keyspace_object(
         &mut self,
-        namespace_name: String,
+        keyspace_name: String,
         object_id: String,
     ) -> Result<Outcome, Error> {
-        match self.namespaces.get(&namespace_name) {
-            Some(namespace) => match namespace.objects.get(&object_id) {
+        match self.keyspaces.get(&keyspace_name) {
+            Some(keyspace) => match keyspace.objects.get(&object_id) {
                 Some(object) => {
                     let object = object.to_owned();
-                    Ok(NamespaceObjectFound(object))
+                    Ok(KeyspaceObjectFound(object))
                 }
-                None => Ok(NamespaceObjectNotFound(object_id)),
+                None => Ok(KeyspaceObjectNotFound(object_id)),
             },
-            None => Ok(NamespaceNotFound(namespace_name)),
+            None => Ok(KeyspaceNotFound(keyspace_name)),
         }
     }
 }
@@ -207,135 +206,135 @@ mod tests {
     fn test_new() {
         let storage = Storage::new();
         assert_eq!(storage.log, Vec::new());
-        assert_eq!(storage.namespaces, HashMap::new());
+        assert_eq!(storage.keyspaces, HashMap::new());
     }
 
     #[test]
     fn test_operations() {
-        // Namespace create:
+        // Keyspace create:
         // 1. has successful outcome
         // 2. appends operation to log
-        // 3. inserts namespace into namespaces
+        // 3. inserts keyspace into keyspaces
 
         let mut storage = Storage::new();
-        let namespace_name = "people";
-        let namespace = Namespace::make(namespace_name);
-        let create_or_update_namespace = CreateOrUpdateNamespace {
-            namespace: namespace.to_owned(),
+        let keyspace_name = "people";
+        let keyspace = Keyspace::make(keyspace_name);
+        let create_or_update_keyspace = CreateOrUpdateKeyspace {
+            keyspace: keyspace.to_owned(),
         };
 
-        let expected_outcome = NamespaceCreated(namespace.clone());
-        let expected_log = vec![create_or_update_namespace.clone()];
-        let mut expected_namespaces: Bag<Namespace> = HashMap::new();
-        expected_namespaces
-            .insert(namespace_name.to_owned(), namespace.to_owned());
+        let expected_outcome = KeyspaceCreated(keyspace.clone());
+        let expected_log = vec![create_or_update_keyspace.clone()];
+        let mut expected_keyspaces: Bag<Keyspace> = HashMap::new();
+        expected_keyspaces
+            .insert(keyspace_name.to_owned(), keyspace.to_owned());
 
         let outcome =
-            storage.apply(create_or_update_namespace.clone()).unwrap();
+            storage.apply(create_or_update_keyspace.clone()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
-        assert_eq!(storage.namespaces, expected_namespaces);
+        assert_eq!(storage.keyspaces, expected_keyspaces);
 
-        // Namespace object create:
+        // Keyspace object create:
         // 1. has successful outcome
         // 2. appends operation to log
-        // 3. inserts object into namespace
+        // 3. inserts object into keyspace
 
-        let mut namespace = namespace.clone();
+        let mut keyspace = keyspace.clone();
         let object_id = "1";
         let object = Object::make(object_id, HashMap::new());
 
-        namespace
+        keyspace
             .objects
             .insert(object_id.to_owned(), object.clone());
 
-        let create_or_update_namespace_object = CreateOrUpdateNamespaceObject {
-            namespace_name: namespace_name.to_owned(),
+        let create_or_update_keyspace_object = CreateOrUpdateKeyspaceObject {
+            keyspace_name: keyspace_name.to_owned(),
             object: object.clone(),
         };
 
-        let expected_outcome = NamespaceObjectCreated(object.clone());
+        let expected_outcome = KeyspaceObjectCreated(object.clone());
         let expected_log = vec![
-            create_or_update_namespace.clone(),
-            create_or_update_namespace_object.clone(),
+            create_or_update_keyspace.clone(),
+            create_or_update_keyspace_object.clone(),
         ];
-        let mut expected_namespaces: Bag<Namespace> = HashMap::new();
-        expected_namespaces
-            .insert(namespace_name.to_owned(), namespace.to_owned());
+        let mut expected_keyspaces: Bag<Keyspace> = HashMap::new();
+        expected_keyspaces
+            .insert(keyspace_name.to_owned(), keyspace.to_owned());
 
         let outcome = storage
-            .apply(create_or_update_namespace_object.clone())
+            .apply(create_or_update_keyspace_object.clone())
             .unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
-        assert_eq!(storage.namespaces, expected_namespaces);
+        assert_eq!(storage.keyspaces, expected_keyspaces);
 
-        // First namespace read (through Storage::apply):
+        // First keyspace read (through Storage::apply):
         // 1. has successful outcome
         // 2. appends operation to log
-        // 3. doesn't change namespaces
+        // 3. doesn't change keyspaces
 
-        let read_namespace = ReadNamespace {
-            namespace_name: namespace_name.to_owned(),
+        let read_keyspace = ReadKeyspace {
+            keyspace_name: keyspace_name.to_owned(),
         };
 
-        let expected_outcome = NamespaceFound(namespace.clone());
+        let expected_outcome = KeyspaceFound(keyspace.clone());
         let expected_log = vec![
-            create_or_update_namespace.clone(),
-            create_or_update_namespace_object.clone(),
-            read_namespace.clone(),
+            create_or_update_keyspace.clone(),
+            create_or_update_keyspace_object.clone(),
+            read_keyspace.clone(),
         ];
 
-        let outcome = storage.apply(read_namespace.clone()).unwrap();
+        let outcome = storage.apply(read_keyspace.clone()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
-        assert_eq!(storage.namespaces, expected_namespaces);
+        assert_eq!(storage.keyspaces, expected_keyspaces);
 
-        // Second namespace read (through Storage::read_namespace):
+        // Second keyspace read (through Storage::read_keyspace):
         // 1. has successful outcome
         // 2. appends operation to log
-        // 3. doesn't change namespaces
+        // 3. doesn't change keyspaces
 
         let expected_log = vec![
-            create_or_update_namespace.clone(),
-            create_or_update_namespace_object.clone(),
-            read_namespace.clone(),
-            read_namespace.clone(),
+            create_or_update_keyspace.clone(),
+            create_or_update_keyspace_object.clone(),
+            read_keyspace.clone(),
+            read_keyspace.clone(),
         ];
 
         let outcome =
-            storage.read_namespace(namespace_name.to_owned()).unwrap();
+            storage.read_keyspace(keyspace_name.to_owned()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
-        assert_eq!(storage.namespaces, expected_namespaces);
+        assert_eq!(storage.keyspaces, expected_keyspaces);
 
-        // Namespace object read:
+        // Keyspace object read:
         // 1. has successful outcome
         // 2. appends operation to log
-        // 3. doesn't change namespaces
+        // 3. doesn't change keyspaces
 
-        let read_namespace_object = ReadNamespaceObject {
-            namespace_name: namespace_name.to_owned(),
+        let read_keyspace_object = ReadKeyspaceObject {
+            keyspace_name: keyspace_name.to_owned(),
             object_id: object_id.to_owned(),
         };
 
-        let expected_outcome = NamespaceObjectFound(object.clone());
+        let expected_outcome = KeyspaceObjectFound(object.clone());
         let expected_log = vec![
-            create_or_update_namespace.clone(),
-            create_or_update_namespace_object.clone(),
-            read_namespace.clone(),
-            read_namespace.clone(),
-            read_namespace_object.clone(),
+            create_or_update_keyspace.clone(),
+            create_or_update_keyspace_object.clone(),
+            read_keyspace.clone(),
+            read_keyspace.clone(),
+            read_keyspace_object.clone(),
         ];
 
-        let outcome = storage.apply(read_namespace_object.clone()).unwrap();
+        let outcome = storage.apply(read_keyspace_object.clone()).unwrap();
 
         assert_eq!(outcome, expected_outcome);
         assert_eq!(storage.log, expected_log);
-        assert_eq!(storage.namespaces, expected_namespaces);
+        assert_eq!(storage.keyspaces, expected_keyspaces);
     }
 }

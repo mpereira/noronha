@@ -10,7 +10,7 @@ use serde_json;
 
 use components::configuration::Configuration;
 use http_utils::{json_body, make_handler_for_request_with_body};
-use namespace::Namespace;
+use keyspace::Keyspace;
 use object::{Object, ObjectData};
 use storage::Outcome::*;
 use utils::make_id_string;
@@ -51,25 +51,25 @@ fn handle_cluster_state(_request: &HttpRequest) -> Result<HttpResponse, Error> {
     }
 }
 
-fn handle_create_or_update_namespace(
+fn handle_create_or_update_keyspace(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
     let mut storage = components::storage::STATE.write().unwrap();
 
-    let namespace_name: String = request.match_info().query("namespace")?;
-    let namespace = Namespace::make(&namespace_name);
+    let keyspace_name: String = request.match_info().query("keyspace")?;
+    let keyspace = Keyspace::make(&keyspace_name);
 
-    match storage.create_or_update_namespace(namespace) {
+    match storage.create_or_update_keyspace(keyspace) {
         Ok(outcome) => match outcome {
-            NamespaceCreated(namespace) => {
-                let response_body = json!(namespace.metadata);
+            KeyspaceCreated(keyspace) => {
+                let response_body = json!(keyspace.metadata);
 
                 Ok(HttpResponse::build(StatusCode::CREATED)
                     .content_type("application/json")
                     .body(json_body(&response_body)))
             }
-            NamespaceUpdated(namespace) => {
-                let response_body = json!(namespace.metadata);
+            KeyspaceUpdated(keyspace) => {
+                let response_body = json!(keyspace.metadata);
 
                 Ok(HttpResponse::build(StatusCode::OK)
                     .content_type("application/json")
@@ -86,21 +86,21 @@ fn handle_create_or_update_namespace(
     }
 }
 
-fn handle_get_namespace(request: &HttpRequest) -> Result<HttpResponse, Error> {
+fn handle_get_keyspace(request: &HttpRequest) -> Result<HttpResponse, Error> {
     let mut storage = components::storage::STATE.write().unwrap();
 
-    let namespace_name: String = request.match_info().query("namespace")?;
+    let keyspace_name: String = request.match_info().query("keyspace")?;
 
-    match storage.read_namespace(namespace_name) {
+    match storage.read_keyspace(keyspace_name) {
         Ok(outcome) => match outcome {
-            NamespaceFound(namespace) => {
-                let response_body = json!(namespace.metadata);
+            KeyspaceFound(keyspace) => {
+                let response_body = json!(keyspace.metadata);
 
                 Ok(HttpResponse::build(StatusCode::OK)
                     .content_type("application/json")
                     .body(json_body(&response_body)))
             }
-            NamespaceNotFound(_namespace_name) => {
+            KeyspaceNotFound(_keyspace_name) => {
                 Ok(HttpResponse::build(StatusCode::NOT_FOUND)
                     .content_type("application/json")
                     .finish())
@@ -116,13 +116,13 @@ fn handle_get_namespace(request: &HttpRequest) -> Result<HttpResponse, Error> {
     }
 }
 
-fn handle_create_or_update_namespace_object(
+fn handle_create_or_update_keyspace_object(
     request: &HttpRequest,
     body: serde_json::Value,
 ) -> Result<HttpResponse, Error> {
     let mut storage = components::storage::STATE.write().unwrap();
 
-    let namespace_name: String = request.match_info().query("namespace")?;
+    let keyspace_name: String = request.match_info().query("keyspace")?;
     let object_id: String = request
         .match_info()
         .get("object_id")
@@ -131,26 +131,24 @@ fn handle_create_or_update_namespace_object(
         .unwrap();
     let object_data: ObjectData = serde_json::from_value(body).unwrap();
     let object = Object::make(&object_id, object_data);
-    info!("handler {:#?}", object);
 
-    match storage.create_or_update_namespace_object(namespace_name, object) {
+    match storage.create_or_update_keyspace_object(keyspace_name, object) {
         Ok(outcome) => match outcome {
-            NamespaceObjectCreated(object) => {
-                info!("handler arm {:#?}", object);
+            KeyspaceObjectCreated(object) => {
                 let response_body = json!(object.data);
 
                 Ok(HttpResponse::build(StatusCode::CREATED)
                     .content_type("application/json")
                     .body(json_body(&response_body)))
             }
-            NamespaceObjectUpdated(object) => {
+            KeyspaceObjectUpdated(object) => {
                 let response_body = json!(object.data);
 
                 Ok(HttpResponse::build(StatusCode::OK)
                     .content_type("application/json")
                     .body(json_body(&response_body)))
             }
-            NamespaceNotFound(_namespace_name) => {
+            KeyspaceNotFound(_keyspace_name) => {
                 Ok(HttpResponse::build(StatusCode::NOT_FOUND)
                     .content_type("application/json")
                     .finish())
@@ -166,12 +164,12 @@ fn handle_create_or_update_namespace_object(
     }
 }
 
-fn handle_get_namespace_object(
+fn handle_get_keyspace_object(
     request: &HttpRequest,
 ) -> Result<HttpResponse, Error> {
     let mut storage = components::storage::STATE.write().unwrap();
 
-    let namespace_name: String = request.match_info().query("namespace")?;
+    let keyspace_name: String = request.match_info().query("keyspace")?;
     let object_id: String = request
         .match_info()
         .get("object_id")
@@ -179,21 +177,21 @@ fn handle_get_namespace_object(
         .or(Some(make_id_string()))
         .unwrap();
 
-    match storage.read_namespace_object(namespace_name, object_id) {
+    match storage.read_keyspace_object(keyspace_name, object_id) {
         Ok(outcome) => match outcome {
-            NamespaceObjectFound(object) => {
+            KeyspaceObjectFound(object) => {
                 let response_body = json!(object.data);
 
                 Ok(HttpResponse::build(StatusCode::OK)
                     .content_type("application/json")
                     .body(json_body(&response_body)))
             }
-            NamespaceNotFound(_namespace_name) => {
+            KeyspaceNotFound(_keyspace_name) => {
                 Ok(HttpResponse::build(StatusCode::NOT_FOUND)
                     .content_type("application/json")
                     .finish())
             }
-            NamespaceObjectNotFound(_object_id) => {
+            KeyspaceObjectNotFound(_object_id) => {
                 Ok(HttpResponse::build(StatusCode::NOT_FOUND)
                     .content_type("application/json")
                     .finish())
@@ -219,23 +217,23 @@ pub fn application() -> App {
                 r.method(http::Method::GET).f(handle_cluster_state)
             })
         })
-        .resource("/{namespace}", |r| {
+        .resource("/{keyspace}", |r| {
             r.method(http::Method::PUT)
-                .f(handle_create_or_update_namespace);
-            r.method(http::Method::GET).f(handle_get_namespace);
+                .f(handle_create_or_update_keyspace);
+            r.method(http::Method::GET).f(handle_get_keyspace);
             r.method(http::Method::POST).with(|request: HttpRequest| {
                 make_handler_for_request_with_body(
-                    &handle_create_or_update_namespace_object,
+                    &handle_create_or_update_keyspace_object,
                 )(request)
             });
         })
-        .resource("/{namespace}/{object_id}", |r| {
+        .resource("/{keyspace}/{object_id}", |r| {
             r.method(http::Method::PUT).with(|request: HttpRequest| {
                 make_handler_for_request_with_body(
-                    &handle_create_or_update_namespace_object,
+                    &handle_create_or_update_keyspace_object,
                 )(request)
             });
-            r.method(http::Method::GET).f(handle_get_namespace_object);
+            r.method(http::Method::GET).f(handle_get_keyspace_object);
         })
 }
 

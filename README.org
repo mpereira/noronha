@@ -45,7 +45,7 @@
     #+END_SRC
 
 ** Get Started
-*** Create namespace
+*** Create keyspace
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
     curl -is -XPUT localhost:6500/people
     #+END_SRC
@@ -62,7 +62,7 @@
     }
     #+END_SRC
 
-*** Get namespace with name
+*** Get keyspace with name
     #+BEGIN_SRC bash :results raw :wrap "SRC json"
     curl -is -XGET localhost:6500/people
     #+END_SRC
